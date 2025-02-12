@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Voice-Enabled GIS Map Interface</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        
+        #map {
+            height: 80vh;
+            width: 100%;
+        }
+        
+        #sidebar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 250px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+        
+        input,
+        button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .suggestions {
+            border: 1px solid #ccc;
+            background: white;
+            max-height: 100px;
+            overflow-y: auto;
+            position: absolute;
+            width: 100%;
+            z-index: 1001;
+        }
+        
+        .suggestions div {
+            padding: 8px;
+            cursor: pointer;
+        }
+        
+        .suggestions div:hover {
+            background: #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div id="sidebar">
+        <h3>Route Finder</h3>
+        <label>Start Location:</label>
+        <input id="startLocation" type="text" placeholder="Enter start location..." oninput="fetchCitySuggestions(this, 'startSuggestions')">
+        <div id="startSuggestions" class="suggestions"></div>
+        <label>End Location:</label>
+        <input id="endLocation" type="text" placeholder="Enter end location..." oninput="fetchCitySuggestions(this, 'endSuggestions')">
+        <div id="endSuggestions" class="suggestions"></div>
+        <button onclick="findRoute()">Get Route</button>
+        <h3>Zoom to Location</h3>
+        <input id="zoomLocation" type="text" placeholder="Enter location to zoom..." oninput="fetchCitySuggestions(this, 'zoomSuggestions')">
+        <div id="zoomSuggestions" class="suggestions"></div>
+        <button onclick="zoomToLocation()">Zoom</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([23.0225, 72.5714], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        function fetchCitySuggestions(input, suggestionBoxId) {
+            var query = input.value;
+            if (query.length < 3) {
+                document.getElementById(suggestionBoxId).innerHTML = "";
+                return;
+            }
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    var suggestions = data.map(city => `<div onclick="selectCity('${city.display_name}', '${input.id}')">${city.display_name}</div>`).join('');
+                    document.getElementById(suggestionBoxId).innerHTML = suggestions;
+                });
+        }
+
+        function selectCity(name, inputId) {
+            document.getElementById(inputId).value = name;
+            document.getElementById(inputId + 'Suggestions').innerHTML = "";
+        }
+
+        function findRoute() {
+            var start = document.getElementById("startLocation").value;
+            var end = document.getElementById("endLocation").value;
+            if (start && end) {
+                fetch(`https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full`)
+                    .then(response => response.json())
+                    .then(data => {
+                        L.geoJSON(data.routes[0].geometry).addTo(map);
+                    });
+            }
+        }
+
+        function zoomToLocation() {
+            var location = document.getElementById("zoomLocation").value;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        map.setView([data[0].lat, data[0].lon], 12);
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>
