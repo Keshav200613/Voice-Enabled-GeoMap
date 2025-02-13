@@ -1,209 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Voice-Enabled GIS Map Interface</title>
-    <!-- Leaflet CSS for map rendering -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        /* Basic styling for the map container and voice command controls */
-        
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        
-        #map {
-            height: 80vh;
-            width: 100%;
-        }
-        
-        #controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-        }
-        
-        #micButton {
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 18px;
-        }
-        
-        #commandOutput {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        
-        #evaluationReport {
-            padding: 10px;
-            background: #f9f9f9;
-            border-top: 1px solid #ddd;
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Voice-Enabled GIS Map Interface</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      height: 80vh;
+      width: 100%;
+    }
+    #sidebar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 250px;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .suggestions {
+      border: 1px solid #ccc;
+      background: white;
+      max-height: 120px;
+      overflow-y: auto;
+      position: absolute;
+      width: calc(100% - 30px);
+      z-index: 1001;
+      border-radius: 8px;
+    }
+    .suggestions div {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .suggestions div:hover {
+      background: #eee;
+    }
+    /* Style for typed errors */
+    #typedError {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
 </head>
-
 <body>
-    <!-- Map container -->
-    <div id="map"></div>
+  <!-- Map Container -->
+  <div id="map"></div>
+  <!-- Sidebar for typed input -->
+  <div id="sidebar">
+    <h3>Route Finder</h3>
+    <label>Start Location:</label>
+    <input id="startLocation" type="text" placeholder="Enter start location..." oninput="fetchCitySuggestions(this, 'startSuggestions')">
+    <div id="startSuggestions" class="suggestions"></div>
+    <label>End Location:</label>
+    <input id="endLocation" type="text" placeholder="Enter end location..." oninput="fetchCitySuggestions(this, 'endSuggestions')">
+    <div id="endSuggestions" class="suggestions"></div>
+    <button onclick="findRoute()">Get Route</button>
+    <!-- Error messages for typed inputs will appear here -->
+    <div id="typedError"></div>
+    <h3>Zoom to Location</h3>
+    <input id="zoomLocation" type="text" placeholder="Enter location to zoom..." oninput="fetchCitySuggestions(this, 'zoomSuggestions')">
+    <div id="zoomSuggestions" class="suggestions"></div>
+    <button onclick="zoomToLocation()">Zoom</button>
+    <h3>Map View</h3>
+    <button onclick="toggleSatelliteView()">Satellite View</button>
+    <button onclick="toggleStreetView()">Street View</button>
+  </div>
+  <!-- Voice Command Controls -->
+  <div id="controls">
+    <!-- Added type="button" to prevent default form submission behavior -->
+    <button id="micButton" type="button" title="Click and speak a command">🎤</button>
+    <div id="commandOutput">Awaiting command...</div>
+  </div>
+  
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map and global variables
+    var map = L.map('map').setView([23.0225, 72.5714], 5);
+    var tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    var satelliteLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png');
+    
+    var routeLine = null; // To store the drawn route (polyline)
+    var markers = [];     // Array to store markers (for zoom and route endpoints)
 
-    <!-- Voice command controls -->
-    <div id="controls">
-        <button id="micButton" title="Click and speak a command">🎤</button>
-        <div id="commandOutput">Awaiting command...</div>
-    </div>
-
-    <!-- Evaluation Report Section (for demo purposes) -->
-    <div id="evaluationReport">
-        <h3>Evaluation Report</h3>
-        <ul>
-            <li><strong>Response Speed:</strong> Commands are processed in near-real-time.</li>
-            <li><strong>Accuracy:</strong> Prototype leverages the Web Speech API; further model improvements (e.g. using GPU-accelerated TensorFlow.js) can boost offline performance.</li>
-            <li><strong>User-Friendliness:</strong> Designed for non-technical users with a simple UI and clear feedback.</li>
-        </ul>
-    </div>
-
-    <!-- Leaflet JS for mapping -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // Initialize Leaflet map centered over India (example: Ahmedabad)
-        var map = L.map('map').setView([23.0225, 72.5714], 5);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-
-        // Define sample geospatial layers (road layer and highway layer)
-        var roadLayer = L.geoJSON(null, {
-            color: 'blue'
-        });
-        var highwayLayer = L.geoJSON(null, {
-            color: 'red'
-        });
-
-        // Dummy GeoJSON features for demonstration
-        var dummyRoad = {
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                    [72.5714, 23.0225],
-                    [72.5800, 23.0300]
-                ]
-            }
-        };
-
-        var dummyHighway = {
-            "type": "Feature",
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                    [72.5714, 23.0225],
-                    [72.6000, 23.0500]
-                ]
-            }
-        };
-
-        roadLayer.addData(dummyRoad);
-        highwayLayer.addData(dummyHighway);
-
-        // Set up voice recognition using the Web Speech API
-        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        var recognition;
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-        } else {
-            document.getElementById('commandOutput').innerText = "Speech recognition not supported in this browser.";
-        }
-
-        // Process recognized voice commands
-        function processCommand(command) {
-            command = command.toLowerCase();
-            document.getElementById('commandOutput').innerText = "Command recognized: " + command;
-
-            // Handle various commands
-            if (command.includes("zoom to")) {
-                // Example: "zoom to Ahmedabad"
-                if (command.includes("ahmedabad")) {
-                    map.setView([23.0225, 72.5714], 12);
-                }
-            } else if (command.includes("show me the road layer")) {
-                if (!map.hasLayer(roadLayer)) {
-                    roadLayer.addTo(map);
-                }
-            } else if (command.includes("hide the road layer")) {
-                if (map.hasLayer(roadLayer)) {
-                    map.removeLayer(roadLayer);
-                }
-            } else if (command.includes("show me the highways")) {
-                if (!map.hasLayer(highwayLayer)) {
-                    highwayLayer.addTo(map);
-                }
-            } else if (command.includes("hide the highways")) {
-                if (map.hasLayer(highwayLayer)) {
-                    map.removeLayer(highwayLayer);
-                }
-            } else if (command.includes("zoom in")) {
-                map.zoomIn();
-            } else if (command.includes("zoom out")) {
-                map.zoomOut();
-            } else if (command.includes("add marker")) {
-                // For demonstration, add a marker at the current center
-                var center = map.getCenter();
-                L.marker(center).addTo(map)
-                    .bindPopup("Marker at " + center.toString()).openPopup();
+    // Helper function to clear previous operations (routes & markers)
+    function clearMap() {
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+      markers.forEach(marker => {
+        map.removeLayer(marker);
+      });
+      markers = [];
+    }
+    
+    function toggleSatelliteView() {
+      if (map.hasLayer(satelliteLayer)) {
+        map.removeLayer(satelliteLayer);
+        tileLayer.addTo(map);
+      } else {
+        map.removeLayer(tileLayer);
+        satelliteLayer.addTo(map);
+      }
+    }
+    function toggleStreetView() {
+      if (map.hasLayer(streetLayer)) {
+        map.removeLayer(streetLayer);
+        tileLayer.addTo(map);
+      } else {
+        map.removeLayer(tileLayer);
+        streetLayer.addTo(map);
+      }
+    }
+    
+    // Function to process voice command transcription on the frontend.
+    // For voice commands, errors are shown in the "commandOutput" element.
+    // On success, the recognized text remains until another operation occurs.
+    function processVoiceCommand(command) {
+      // Do not clear commandOutput here; let it display the recognized text.
+      clearMap(); // Remove previous route/markers.
+      command = command.toLowerCase();
+      // Split by common keywords "to", "and", or comma.
+      let parts = command.split(/\s*(?:to|and|,)\s*/);
+      if (parts.length === 1) {
+        // Single location: zoom into it.
+        let location = parts[0];
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.length) {
+              let lat = parseFloat(data[0].lat);
+              let lon = parseFloat(data[0].lon);
+              map.setView([lat, lon], 12);
+              let marker = L.marker([lat, lon]).addTo(map).bindPopup(location).openPopup();
+              markers.push(marker);
+              // Retain the recognized command text in commandOutput.
             } else {
-                document.getElementById('commandOutput').innerText += "\nUnknown command.";
+              document.getElementById("commandOutput").innerText = "Location not found: " + location;
             }
-        }
-
-        // Set up the microphone button to start voice recognition
-        document.getElementById("micButton").addEventListener("click", async function() {
-            document.getElementById("commandOutput").innerText = "Recording...";
-
-            try {
-                let response = await fetch("http://localhost:8000/transcribe", {
-                    method: "POST"
-                });
-                let data = await response.json();
-                let command = data.text.toLowerCase();
-
-                document.getElementById("commandOutput").innerText = "Command recognized: " + command;
-                processCommand(command);
-            } catch (error) {
-                document.getElementById("commandOutput").innerText = "Error: Could not process voice command.";
-                console.error("Voice recognition error:", error);
-            }
+          });
+      } else if (parts.length >= 2) {
+        // Two (or more) locations: use the first two to calculate a route.
+        let start = parts[0];
+        let end = parts[1];
+        Promise.all([
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${start}`).then(r => r.json()),
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${end}`).then(r => r.json())
+        ]).then(([data1, data2]) => {
+          if (data1.length && data2.length) {
+            let startLat = parseFloat(data1[0].lat);
+            let startLon = parseFloat(data1[0].lon);
+            let endLat = parseFloat(data2[0].lat);
+            let endLon = parseFloat(data2[0].lon);
+            // Request route from GraphHopper.
+            let ghParams = new URLSearchParams();
+            ghParams.append('point', `${startLat},${startLon}`);
+            ghParams.append('point', `${endLat},${endLon}`);
+            ghParams.append('profile', "car");
+            ghParams.append('key', "81e98aa3-10dc-4192-ac45-aa6b92cca8ac");
+            ghParams.append('points_encoded', "false");
+            
+            fetch(`https://graphhopper.com/api/1/route?${ghParams.toString()}`)
+              .then(r => r.json())
+              .then(routeData => {
+                if (routeData.paths && routeData.paths.length) {
+                  let routeCoords = routeData.paths[0].points.coordinates.map(c => [c[1], c[0]]);
+                  routeLine = L.polyline(routeCoords, { color: 'blue' }).addTo(map);
+                  map.fitBounds(routeLine.getBounds());
+                  let markerStart = L.marker([startLat, startLon]).addTo(map).bindPopup(start).openPopup();
+                  let markerEnd = L.marker([endLat, endLon]).addTo(map).bindPopup(end).openPopup();
+                  markers.push(markerStart, markerEnd);
+                  // Leave the recognized command text intact.
+                } else {
+                  document.getElementById("commandOutput").innerText = "Could not calculate route.";
+                }
+              });
+          } else {
+            document.getElementById("commandOutput").innerText = "One or both locations not found.";
+          }
         });
-
-        // Listen for the speech recognition result
-        if (recognition) {
-            recognition.addEventListener('result', function(event) {
-                var transcript = event.results[0][0].transcript;
-                processCommand(transcript);
-            });
-            recognition.addEventListener('error', function(event) {
-                document.getElementById('commandOutput').innerText = "Error: " + event.error;
-            });
+      } else {
+        document.getElementById("commandOutput").innerText = "Could not process command.";
+      }
+    }
+    
+    // Typed input route-finding and zooming functions.
+    // For typed inputs, errors are displayed in the "typedError" element.
+    async function findRoute() {
+      clearMap(); // Clear any previous operations first.
+      document.getElementById("typedError").innerText = "";
+      var start = document.getElementById('startLocation').value;
+      var end = document.getElementById('endLocation').value;
+      if (!start || !end) {
+        alert('Please enter both start and end locations.');
+        return;
+      }
+      let response1 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${start}`);
+      let data1 = await response1.json();
+      let response2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${end}`);
+      let data2 = await response2.json();
+      if (data1.length && data2.length) {
+        let startLat = parseFloat(data1[0].lat);
+        let startLon = parseFloat(data1[0].lon);
+        let endLat = parseFloat(data2[0].lat);
+        let endLon = parseFloat(data2[0].lon);
+        
+        // Build the GraphHopper API query with duplicate "point" keys properly.
+        let ghParams = new URLSearchParams();
+        ghParams.append('point', `${startLat},${startLon}`);
+        ghParams.append('point', `${endLat},${endLon}`);
+        ghParams.append('profile', "car");
+        ghParams.append('key', "81e98aa3-10dc-4192-ac45-aa6b92cca8ac");
+        ghParams.append('points_encoded', "false");
+        
+        let response = await fetch(`https://graphhopper.com/api/1/route?${ghParams.toString()}`);
+        let data = await response.json();
+        if (data.paths && data.paths.length) {
+          let routeCoords = data.paths[0].points.coordinates.map(c => [c[1], c[0]]);
+          routeLine = L.polyline(routeCoords, { color: 'blue' }).addTo(map);
+          map.fitBounds(routeLine.getBounds());
+          let markerStart = L.marker([startLat, startLon]).addTo(map).bindPopup(start).openPopup();
+          let markerEnd = L.marker([endLat, endLon]).addTo(map).bindPopup(end).openPopup();
+          markers.push(markerStart, markerEnd);
+        } else {
+          document.getElementById("typedError").innerText = "Could not calculate route.";
         }
-    </script>
+      } else {
+        document.getElementById("typedError").innerText = "One or both locations not found.";
+      }
+    }
+    
+    async function zoomToLocation() {
+      clearMap(); // Remove any previous operations.
+      document.getElementById("typedError").innerText = "";
+      let location = document.getElementById('zoomLocation').value;
+      let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location}`);
+      let data = await response.json();
+      if (data.length) {
+        let lat = parseFloat(data[0].lat);
+        let lon = parseFloat(data[0].lon);
+        map.setView([lat, lon], 12);
+        let marker = L.marker([lat, lon]).addTo(map).bindPopup(location).openPopup();
+        markers.push(marker);
+      } else {
+        document.getElementById("typedError").innerText = "Location not found: " + location;
+      }
+    }
+    
+    function fetchCitySuggestions(input, suggestionBoxId) {
+      var query = input.value;
+      if (query.length < 3) {
+        document.getElementById(suggestionBoxId).innerHTML = "";
+        return;
+      }
+      fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5&language=en&format=json`)
+        .then(response => response.json())
+        .then(data => {
+          var suggestions = data.results
+            .filter(city => city.admin1)
+            .map(city => `<div onclick="selectCity('${city.name}, ${city.admin1}', '${input.id}', '${suggestionBoxId}')">${city.name}, ${city.admin1}</div>`)
+            .join('');
+          document.getElementById(suggestionBoxId).innerHTML = suggestions;
+        });
+    }
+    
+    function selectCity(name, inputId, suggestionBoxId) {
+      document.getElementById(inputId).value = name;
+      document.getElementById(suggestionBoxId).innerHTML = "";
+    }
+    
+    // Voice command handling.
+    document.getElementById("micButton").addEventListener("click", async function(event) {
+      event.preventDefault(); // Prevent default button behavior (e.g. form submission)
+      document.getElementById("commandOutput").innerText = "Recording...";
+      try {
+        let response = await fetch("http://localhost:8000/transcribe", { method: "POST" });
+        let data = await response.json();
+        //let data="hello"
+        let command = data.text;
+        
+        console.log("Received command: " + command);
+        // Show the recognized command and then process it.
+        document.getElementById("commandOutput").innerText = "Command recognized: " + command;
+        processVoiceCommand(command);
+      } catch (error) {
+        document.getElementById("commandOutput").innerText = "Error: Could not process voice command.";
+        console.error("Voice recognition error:", error);
+      }
+    });
+    
+  </script>
 </body>
-
 </html>
