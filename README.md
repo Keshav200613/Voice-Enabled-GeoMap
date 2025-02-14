@@ -55,10 +55,10 @@ Voice-Enabled GeoMap is a lightweight and scalable voice-enabled user interface 
 
 🎥 **Watch it in action:**
 
-- [Demo Video 1](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-18-38.mov)*
-- [Demo Video 2](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-20-18.mov)*
-- [Demo Video 3](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-23-09.mov)*
-- [Demo Video 4](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-50-44.mov)*
+[![Video Title](https://img.youtube.com/vi/geEBGBHT-r0/0.jpg)](https://www.youtube.com/watch?v=geEBGBHT-r0)
+[![Video Title](https://img.youtube.com/vi/FsEB-3UtN8U/0.jpg)](https://youtu.be/FsEB-3UtN8U)
+[![Video Title](https://img.youtube.com/vi/3ZiWlUfCDNI/0.jpg)](https://youtu.be/3ZiWlUfCDNI)
+[![Video Title](https://img.youtube.com/vi/Olz5T_2WWP0/0.jpg)](https://youtu.be/Olz5T_2WWP0)
 
 ## Contributing
 
