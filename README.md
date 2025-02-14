@@ -11,7 +11,6 @@ Voice-Enabled GeoMap is a lightweight and scalable voice-enabled user interface 
 ## Features
 
 - 🎙️ **Voice Commands:** Navigate and interact with maps using natural language.
-- 🌍 **Geospatial Data Rendering:** Displays data from ISRO's Geoportal (2D Viewer).
 - ⚡ **Local Processing:** Runs on local hardware, leveraging GPU/NPU for performance.
 - 🛠 **Lightweight & Scalable:** Designed for efficiency without heavy dependencies.
 - 📡 **Customizable:** Easily extendable for different geospatial datasets and voice commands.
@@ -56,8 +55,10 @@ Voice-Enabled GeoMap is a lightweight and scalable voice-enabled user interface 
 
 🎥 **Watch it in action:**
 
-- [Demo Video 1](#) *(Replace with actual link)*
-- [Demo Video 2](#) *(Replace with actual link)*
+- [Demo Video 1](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-18-38.mov)*
+- [Demo Video 2](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-20-18.mov)*
+- [Demo Video 3](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-23-09.mov)*
+- [Demo Video 4](#) *(https://github.com/Keshav200613/Voice-Enabled-GeoMap/blob/main/Demo%20Videos/2025-02-14%2021-50-44.mov)*
 
 ## Contributing
 
