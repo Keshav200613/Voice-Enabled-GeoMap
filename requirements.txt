@@ -4,7 +4,5 @@ vosk
 sounddevice
 numpy
 wave
-shutil
 requests
-json
 asyncio
